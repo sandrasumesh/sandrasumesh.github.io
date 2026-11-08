@@ -71,7 +71,11 @@ nav .wrap { display: flex; align-items: center; justify-content: space-between; 
 
 /* hero */
 .hero { position: relative; min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding: 96px 0 72px; }
-.hero .wrap { display: grid; grid-template-columns: 1.25fr .9fr; gap: 48px; align-items: center; }
+.hero .wrap { display: flex; justify-content: center; }
+.hero-inner { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.name-row { display: flex; align-items: center; justify-content: center; gap: clamp(28px, 5vw, 72px); margin: 18px 0 40px; }
+.name-row h1 { margin: 0; text-align: left; }
+.hero .cta { justify-content: center; }
 .kicker { font: 400 12.5px/1.6 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--peach); }
 h1 { font: 400 clamp(64px, 10.5vw, 132px)/.92 var(--serif); margin: 18px 0 26px; letter-spacing: -.015em; }
 h1 em { font-style: italic; color: transparent; background: linear-gradient(100deg, #ffe0bd 0%, var(--peach) 40%, var(--rose) 100%); -webkit-background-clip: text; background-clip: text; padding-right: .06em; }
@@ -83,11 +87,11 @@ h1 em { font-style: italic; color: transparent; background: linear-gradient(100d
 .btn.sun { color: #2a1626; border: 0; background: linear-gradient(100deg, #ffe0bd, var(--peach) 45%, var(--rose)); box-shadow: 0 8px 30px -8px rgba(255, 150, 130, .55); font-weight: 500; }
 .btn.sun:hover { box-shadow: 0 10px 36px -6px rgba(255, 150, 130, .75); }
 
-.portrait { position: relative; justify-self: center; width: min(360px, 78vw); aspect-ratio: 1; }
+.portrait { position: relative; flex: none; width: clamp(110px, 21vw, 280px); aspect-ratio: 1; }
 .portrait::before { content: ""; position: absolute; inset: -22%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 196, 150, .45) 0%, rgba(243, 139, 163, .18) 45%, transparent 70%); filter: blur(8px); animation: breathe 7s ease-in-out infinite; }
 .portrait .frame { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; border: 1px solid rgba(255, 230, 210, .35); box-shadow: 0 0 0 10px rgba(255, 230, 210, .04), 0 30px 80px -20px rgba(0, 0, 0, .6); background: radial-gradient(circle at 35% 30%, #ffd9b8, #f29a8f 45%, #7b3d63 100%); display: grid; place-items: center; }
 .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.92) contrast(1.02); }
-.portrait .initials { font: italic 400 120px/1 var(--serif); color: rgba(255, 248, 240, .92); text-shadow: 0 4px 30px rgba(120, 40, 70, .4); }
+.portrait .initials { font: italic 400 clamp(46px, 8vw, 104px)/1 var(--serif); color: rgba(255, 248, 240, .92); text-shadow: 0 4px 30px rgba(120, 40, 70, .4); }
 .portrait .ring { position: absolute; inset: -14px; border-radius: 50%; border: 1px dashed rgba(255, 220, 200, .22); animation: spin 60s linear infinite; }
 @keyframes breathe { 50% { transform: scale(1.06); opacity: .85; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -199,9 +203,6 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 .js .reveal.in { opacity: 1; filter: none; transform: none; }
 
 @media (max-width: 900px) {
-  .hero .wrap { grid-template-columns: 1fr; gap: 40px; }
-  .portrait { order: -1; width: min(240px, 60vw); }
-  .portrait .initials { font-size: 84px; }
   .about, .edu { grid-template-columns: 1fr; }
   .projects { grid-template-columns: 1fr; }
   .proj, .proj.feature { grid-column: auto; }
@@ -248,22 +249,23 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 
 <header class="hero">
   <div class="wrap">
-    <div class="reveal">
+    <div class="hero-inner reveal">
       <div class="kicker">Software developer · Maryland</div>
-      <h1>Sandra<br><em>Sumesh</em></h1>
-      <p class="lede">I build software with AI in the loop, and I'm most useful where <em>the code meets the customer.</em></p>
+      <div class="name-row">
+        <h1>Sandra<br><em>Sumesh</em></h1>
+        <div class="portrait" aria-label="Photo of Sandra Sumesh">
+          <div class="ring"></div>
+          <div class="frame">
+            <img src="img/sandra.jpg" alt="Sandra Sumesh" onerror="this.remove(); document.getElementById('initials').hidden = false;">
+            <span class="initials" id="initials" hidden>ss</span>
+          </div>
+        </div>
+      </div>
       <div class="cta">
         <a class="btn sun" href="#projects">See my work</a>
         <a class="btn" href="https://github.com/sandrasumesh">GitHub</a>
         <a class="btn" href="https://www.linkedin.com/in/sandra-sumesh-b33a4b273/">LinkedIn</a>
         <a class="btn" href="mailto:sandrasumesh7@gmail.com">Email</a>
-      </div>
-    </div>
-    <div class="portrait reveal" aria-label="Photo of Sandra Sumesh">
-      <div class="ring"></div>
-      <div class="frame">
-        <img src="img/sandra.jpg" alt="Sandra Sumesh" onerror="this.remove(); document.getElementById('initials').hidden = false;">
-        <span class="initials" id="initials" hidden>ss</span>
       </div>
     </div>
   </div>
@@ -744,7 +746,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
       // drifts up to the top corner and recedes into the distance
       var base = Math.min(W, H), climb = ease(range(prog, 0, 0.22));
       var pr = portrait.getBoundingClientRect();
-      var ax = pr.left + pr.width * 0.62, ay = H - (pr.top + pr.height * 0.4), ar = pr.width * 0.5 * 1.28;
+      var ax = pr.left + pr.width * (mobile ? 0.54 : 0.62), ay = H - (pr.top + pr.height * (mobile ? 0.45 : 0.4)), ar = pr.width * 0.5 * (mobile ? 1.18 : 1.28);
       var bx = W * (mobile ? 0.8 : 0.84), by = H * (mobile ? 0.72 : 0.8), br = base * (mobile ? 0.13 : 0.11);
       var mxp = ax + (bx - ax) * climb + cx * 0.3 * climb, myp = ay + (by - ay) * climb - cy * 0.2 * climb; // GL y is up
       var r = ar + (br - ar) * climb;
