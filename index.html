@@ -760,7 +760,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
       gl.bindBuffer(gl.ARRAY_BUFFER, quad); attrib(moonP, 'aPos', 2, 0, 0);
       gl.uniform2f(moonP.u.uC, mxp * DPR, myp * DPR); gl.uniform1f(moonP.u.uR, r * DPR);
       gl.uniform2f(moonP.u.uRes, canvas.width, canvas.height);
-      gl.uniform1f(moonP.u.uSpin, reduce ? 0.6 : 0.6 + secs * 0.02 + prog * 1.2);
+      gl.uniform1f(moonP.u.uSpin, reduce ? 0.6 : 0.6 + secs * 0.035 + prog * 1.2);
       gl.uniform1f(moonP.u.uA, mf * (0.25 + 0.75 * intro));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
