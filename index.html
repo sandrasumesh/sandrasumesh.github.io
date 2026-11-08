@@ -35,7 +35,7 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 80px; }
-html, body { margin: 0; }
+html, body { margin: 0; overflow-x: clip; }
 body {
   background: linear-gradient(180deg, #0e0c1e 0%, #1b1432 45%, #3a1e3e 80%, #5e2e46 100%) fixed;
   color: var(--cream); font: 400 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased;
@@ -158,10 +158,18 @@ h2 em { font-style: italic; color: var(--peach); }
 .filter:hover { color: var(--cream); border-color: rgba(255, 190, 160, .4); }
 .filter[aria-pressed="true"] { color: #2a1626; background: linear-gradient(100deg, #ffe0bd, var(--peach)); border-color: transparent; }
 .skillbox { padding: 34px; }
-.skills { display: flex; flex-wrap: wrap; gap: 10px; }
-.skill { font: 400 15px/1 var(--sans); padding: 12px 18px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 244, 236, .04); transition: opacity .45s, filter .45s, transform .45s, border-color .3s; }
-.skill:hover { border-color: rgba(255, 190, 160, .5); }
-.skill.dim { opacity: .14; filter: blur(1.5px); transform: scale(.96); }
+.orbit-stage { position: relative; width: 100%; height: 600px; margin: 0 auto; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.orbit-stage.dragging { cursor: grabbing; }
+.moonglow { position: absolute; left: 50%; top: 50%; width: 520px; height: 520px; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; z-index: 1;
+  background: radial-gradient(circle, rgba(255, 214, 228, .38) 0%, rgba(247, 168, 196, .18) 32%, rgba(200, 160, 255, .06) 55%, transparent 70%); animation: breathe 8s ease-in-out infinite; }
+#moon { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 100; pointer-events: none; border-radius: 50%; box-shadow: 0 0 60px 6px rgba(255, 205, 222, .35), 0 0 140px 30px rgba(240, 150, 190, .14); }
+.skill { position: absolute; left: 50%; top: 50%; white-space: nowrap; font: 400 14.5px/1 var(--sans); padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: rgba(30, 22, 48, .45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--cream); will-change: transform, opacity; transition: border-color .3s, color .3s, background .3s; }
+.skill.hit { border-color: rgba(255, 196, 214, .7); background: rgba(255, 196, 214, .14); color: #fff; box-shadow: 0 0 18px -4px rgba(255, 180, 205, .6); }
+.orbit-hint { text-align: center; font: 400 11.5px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--faint); margin-top: 8px; }
+.no-orbit .orbit-stage, html:not(.js) .orbit-stage { height: auto; display: flex; flex-wrap: wrap; gap: 10px; cursor: auto; }
+.no-orbit .skill, html:not(.js) .skill { position: static; }
+.no-orbit #moon, .no-orbit .moonglow, .no-orbit .orbit-hint, html:not(.js) #moon, html:not(.js) .moonglow, html:not(.js) .orbit-hint { display: none; }
+@media (max-width: 640px) { .orbit-stage { height: 520px; } .skillbox { padding: 22px 14px; } .skill { font-size: 11.5px; padding: 7px 10px; } .moonglow { width: 360px; height: 360px; } }
 
 /* education + contact */
 .edu { padding: 36px 38px; display: grid; grid-template-columns: 1fr 1.3fr; gap: 32px; }
@@ -421,7 +429,9 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
         <button class="filter" type="button" data-f="infra" aria-pressed="false">Infrastructure</button>
         <button class="filter" type="button" data-f="practice" aria-pressed="false">Practice</button>
       </div>
-      <div class="skills" id="skilllist">
+      <div class="orbit-stage" id="skilllist">
+        <div class="moonglow" aria-hidden="true"></div>
+        <canvas id="moon" aria-hidden="true"></canvas>
         <span class="skill" data-c="lang">Python</span>
         <span class="skill" data-c="lang">Java</span>
         <span class="skill" data-c="lang">TypeScript</span>
@@ -434,7 +444,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
         <span class="skill" data-c="lang">R</span>
         <span class="skill" data-c="lang">Bash</span>
         <span class="skill" data-c="lang">Assembly</span>
-        <span class="skill" data-c="ai">Claude API &amp; LLM tool use</span>
+        <span class="skill" data-c="ai">Claude API &amp; tool use</span>
         <span class="skill" data-c="ai">Structured LLM output</span>
         <span class="skill" data-c="ai">pydantic</span>
         <span class="skill" data-c="ai">pandas</span>
@@ -459,8 +469,9 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
         <span class="skill" data-c="practice">User research</span>
         <span class="skill" data-c="practice">Figma</span>
         <span class="skill" data-c="practice">Root cause analysis</span>
-        <span class="skill" data-c="practice">Client-facing communication</span>
+        <span class="skill" data-c="practice">Client communication</span>
       </div>
+      <p class="orbit-hint">Drag to turn the moon</p>
     </div>
   </div>
 </section>
@@ -644,16 +655,157 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
   go(0);
 })();
 
-/* ---------- skill filters ---------- */
+/* ---------- moon + orbiting skills ---------- */
 (function () {
-  var btns = document.querySelectorAll('#filters .filter'), skills = document.querySelectorAll('#skilllist .skill');
+  var stage = document.getElementById('skilllist'), moon = document.getElementById('moon');
+  var skills = Array.prototype.slice.call(stage.querySelectorAll('.skill'));
+  var btns = document.querySelectorAll('#filters .filter');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var mctx = moon.getContext && moon.getContext('2d');
+  if (!mctx) { document.documentElement.classList.add('no-orbit'); return; }
+
+  /* --- moon surface texture: soft maria + craters, generated on a sphere so it has no seam --- */
+  var TW = 512, TH = 256, tex = new Float32Array(TW * TH);
+  function hash(x, y, z) { var h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return h - Math.floor(h); }
+  function noise(x, y, z) {
+    var xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+    var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+    function L(a, b, t) { return a + (b - a) * t; }
+    return L(L(L(hash(xi, yi, zi), hash(xi + 1, yi, zi), u), L(hash(xi, yi + 1, zi), hash(xi + 1, yi + 1, zi), u), v),
+             L(L(hash(xi, yi, zi + 1), hash(xi + 1, yi, zi + 1), u), L(hash(xi, yi + 1, zi + 1), hash(xi + 1, yi + 1, zi + 1), u), v), w);
+  }
+  var craters = [], seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  for (var c = 0; c < 110; c++) {
+    var cz = rnd() * 2 - 1, ct = rnd() * Math.PI * 2, cr = Math.sqrt(1 - cz * cz);
+    craters.push([cr * Math.cos(ct), cz, cr * Math.sin(ct), 0.02 + Math.pow(rnd(), 2.6) * 0.2]);
+  }
+  for (var v = 0; v < TH; v++) {
+    var lat = (v / TH - 0.5) * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
+    for (var u = 0; u < TW; u++) {
+      var lon = (u / TW - 0.5) * Math.PI * 2, x = cl * Math.sin(lon), y = sl, z = cl * Math.cos(lon);
+      var maria = noise(x * 1.6 + 5, y * 1.6, z * 1.6) * 0.65 + noise(x * 3.5, y * 3.5 + 2, z * 3.5) * 0.35;
+      var a = 0.86 - Math.max(0, maria - 0.48) * 0.95 + (noise(x * 14, y * 14, z * 14) - 0.5) * 0.07;
+      for (var k = 0; k < craters.length; k++) {
+        var cc = craters[k], d = Math.acos(Math.min(1, x * cc[0] + y * cc[1] + z * cc[2])) / cc[3];
+        if (d < 1.6) { a += (d < 1 ? -0.075 * (1 - d * d) : 0) + 0.055 * Math.exp(-Math.pow((d - 1) / 0.16, 2)); }
+      }
+      tex[v * TW + u] = Math.max(0.2, Math.min(1, a));
+    }
+  }
+
+  /* --- sizes --- */
+  var SR, SRY, MR, MPX, img, nx, ny, nz, inside, pts = [];
+  var n = skills.length, golden = Math.PI * (3 - Math.sqrt(5));
+  for (var i = 0; i < n; i++) {
+    var yy = 1 - (i / (n - 1)) * 2, rr = Math.sqrt(1 - yy * yy), th = golden * i;
+    pts.push([Math.cos(th) * rr, yy, Math.sin(th) * rr]);
+  }
+  function size() {
+    var w = stage.clientWidth, h = stage.clientHeight;
+    var widest = 0; skills.forEach(function (s) { widest = Math.max(widest, s.offsetWidth); });
+    SR = Math.max(90, Math.min(w * 0.5 - widest * 0.45, h * 0.5 - 26));
+    var narrow = w < 500;
+    SRY = Math.max(SR, Math.min(h * 0.5 - 26, SR * (narrow ? 2.4 : 1.75)));
+    MR = Math.round(SR * (narrow ? 0.66 : 0.5));
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    MPX = Math.round(MR * 2 * dpr);
+    moon.width = moon.height = MPX; moon.style.width = moon.style.height = (MR * 2) + 'px';
+    img = mctx.createImageData(MPX, MPX);
+    nx = new Float32Array(MPX * MPX); ny = new Float32Array(MPX * MPX); nz = new Float32Array(MPX * MPX); inside = new Float32Array(MPX * MPX);
+    var R = MPX / 2;
+    for (var j = 0; j < MPX; j++) for (var i2 = 0; i2 < MPX; i2++) {
+      var px = (i2 + 0.5 - R) / R, py = (j + 0.5 - R) / R, d2 = px * px + py * py, idx = j * MPX + i2;
+      var edge = (1 - Math.sqrt(d2)) * R; // pixels from the rim, for antialiasing
+      inside[idx] = Math.max(0, Math.min(1, edge + 0.5));
+      if (d2 <= 1) { nx[idx] = px; ny[idx] = py; nz[idx] = Math.sqrt(1 - d2); }
+    }
+  }
+
+  /* --- state --- */
+  var rx = -0.25, ry = 0, vx = 0, vy = reduce ? 0 : 0.0032, auto = reduce ? 0 : 0.0032, dragging = false, lx = 0, ly = 0, visible = true, filter = 'all';
+  var Lx = -0.55, Ly = -0.35, Lz = 0.76, Ln = Math.sqrt(Lx * Lx + Ly * Ly + Lz * Lz); Lx /= Ln; Ly /= Ln; Lz /= Ln;
+
+  function drawMoon() {
+    var d = img.data, cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry), N = MPX * MPX;
+    for (var i = 0; i < N; i++) {
+      var o = i * 4, al = inside[i];
+      if (al <= 0) { d[o + 3] = 0; continue; }
+      var X = nx[i], Y = ny[i], Z = nz[i];
+      // undo the pitch, then the yaw, to find which point of the surface faces us
+      var y1 = Y * cx + Z * sx, z1 = -Y * sx + Z * cx;
+      var x0 = X * cy - z1 * sy, z0 = X * sy + z1 * cy;
+      var lon = Math.atan2(x0, z0), lat = Math.asin(Math.max(-1, Math.min(1, y1)));
+      var tu = ((lon / 6.283185 + 0.5) * TW) | 0, tv = ((lat / 3.141593 + 0.5) * TH) | 0;
+      if (tu >= TW) tu = TW - 1; if (tv >= TH) tv = TH - 1;
+      var alb = tex[tv * TW + tu];
+      var diff = X * Lx + Y * Ly + Z * Lz; diff = diff > 0 ? diff : 0;
+      var lit = Math.pow(diff, 0.8) * 1.08;
+      var rim = Math.pow(1 - Z, 2.5) * 0.45; // soft pink halo at the limb
+      var sh = (1 - diff) * 0.16;            // rosy light in the shadows
+      d[o] = Math.min(255, alb * (lit * 255 + sh * 150) + rim * 255);
+      d[o + 1] = Math.min(255, alb * (lit * 226 + sh * 80) + rim * 168);
+      d[o + 2] = Math.min(255, alb * (lit * 232 + sh * 130) + rim * 200);
+      d[o + 3] = al * 255;
+    }
+    mctx.putImageData(img, 0, 0);
+  }
+
+  function placeTags() {
+    var cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry);
+    for (var i = 0; i < n; i++) {
+      var p = pts[i], x1 = p[0] * cy + p[2] * sy, z1 = -p[0] * sy + p[2] * cy;
+      var y2 = p[1] * cx - z1 * sx, z2 = p[1] * sx + z1 * cx;
+      var depth = (z2 + 1) / 2, s = (0.62 + 0.45 * depth) * (filter !== 'all' && skills[i].dataset.c === filter ? 1.12 : 1);
+      var match = filter === 'all' || skills[i].dataset.c === filter;
+      var op = filter === 'all' ? 0.22 + 0.78 * depth : (match ? 0.6 + 0.4 * depth : 0.08);
+      var el = skills[i];
+      el.style.transform = 'translate(-50%,-50%) translate3d(' + (x1 * SR).toFixed(1) + 'px,' + (y2 * SRY * 0.92).toFixed(1) + 'px,0) scale(' + s.toFixed(3) + ')';
+      el.style.opacity = op.toFixed(3);
+      el.style.zIndex = Math.round(depth * 200);
+      el.style.filter = depth < 0.35 ? 'blur(' + ((0.35 - depth) * 5).toFixed(1) + 'px)' : 'none';
+    }
+  }
+
+  function tick() {
+    if (!dragging) { vy += (auto - vy) * 0.03; vx *= 0.94; }
+    ry += vy; rx += vx; rx = Math.max(-1.1, Math.min(1.1, rx));
+    drawMoon(); placeTags();
+    if (visible && !reduce) requestAnimationFrame(tick);
+  }
+
+  stage.addEventListener('pointerdown', function (e) {
+    dragging = true; lx = e.clientX; ly = e.clientY; vx = vy = 0;
+    stage.classList.add('dragging'); stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY;
+    vy = dx * 0.006; vx = -dy * 0.006; ry += vy; rx += vx; rx = Math.max(-1.1, Math.min(1.1, rx));
+    if (reduce) { drawMoon(); placeTags(); }
+  });
+  function end() { dragging = false; stage.classList.remove('dragging'); }
+  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
+
   btns.forEach(function (b) {
     b.addEventListener('click', function () {
-      var f = b.dataset.f;
+      filter = b.dataset.f;
       btns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-      skills.forEach(function (s) { s.classList.toggle('dim', f !== 'all' && s.dataset.c !== f); });
+      skills.forEach(function (s) { s.classList.toggle('hit', filter !== 'all' && s.dataset.c === filter); });
+      placeTags();
     });
   });
+
+  if ('IntersectionObserver' in window && !reduce) {
+    visible = false;
+    new IntersectionObserver(function (en) {
+      var was = visible; visible = en[0].isIntersecting;
+      if (visible && !was) requestAnimationFrame(tick);
+    }).observe(stage);
+  }
+  window.addEventListener('resize', function () { size(); drawMoon(); placeTags(); });
+  size(); drawMoon(); placeTags();
+  if (visible && !reduce) requestAnimationFrame(tick);
 })();
 </script>
 </body>
