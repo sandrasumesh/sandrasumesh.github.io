@@ -60,13 +60,21 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--peach); outline
 .skip:focus { left: 8px; }
 
 /* nav */
-nav { position: fixed; top: 0; left: 0; right: 0; transition: background .4s, border-color .4s; border-bottom: 1px solid transparent; }
+nav { position: fixed; z-index: 30; top: 0; left: 0; right: 0; transition: background .4s, border-color .4s; border-bottom: 1px solid transparent; }
 nav.scrolled { background: rgba(18, 15, 36, .55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-color: var(--line); }
 nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
 .brand { font: italic 500 24px/1 var(--serif); color: var(--cream); text-decoration: none; letter-spacing: .01em; }
 .links { display: flex; gap: 26px; font: 400 12.5px/1 var(--mono); letter-spacing: .08em; text-transform: lowercase; }
 .links a { color: var(--muted); text-decoration: none; transition: color .25s; }
 .links a:hover { color: var(--peach); }
+.menu-btn { display: none; background: var(--glass); border: 1px solid var(--line); color: var(--cream); font: 400 12.5px/1 var(--mono); letter-spacing: .08em; padding: 9px 14px; border-radius: 999px; }
+@media (max-width: 640px) {
+  .menu-btn { display: inline-block; }
+  .links { display: none; position: absolute; top: 64px; left: 12px; right: 12px; flex-direction: column; gap: 0; padding: 8px; border-radius: 18px; background: rgba(18, 15, 36, .92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); }
+  .links.open { display: flex; }
+  .links a { padding: 14px 16px; font-size: 14px; border-radius: 12px; }
+  .links a:active { background: var(--glass-hi); }
+}
 
 /* hero */
 .hero { position: relative; min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding: 96px 0 72px; }
@@ -213,7 +221,6 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 20px; }
-  .links a.opt { display: none; }
   .scroll-cue { display: none; }
   .links { gap: 18px; }
   section.block { padding: 80px 0; }
@@ -238,11 +245,12 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 <nav id="nav">
   <div class="wrap">
     <a class="brand" href="#top">Sandra Sumesh</a>
-    <div class="links">
-      <a class="opt" href="#about">about</a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks">menu</button>
+    <div class="links" id="navLinks">
+      <a href="#about">about</a>
       <a href="#projects">projects</a>
-      <a class="opt" href="#experience">experience</a>
-      <a class="opt" href="#skills">skills</a>
+      <a href="#experience">experience</a>
+      <a href="#skills">skills</a>
       <a href="#contact">contact</a>
     </div>
   </div>
@@ -492,25 +500,9 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
   </div>
 </section>
 
-<section class="block" id="education">
-  <div class="wrap">
-    <div class="head reveal"><span class="num">05</span><h2>Where I <em>learned</em></h2></div>
-    <div class="glass edu reveal">
-      <div>
-        <h3>University of Maryland, College Park</h3>
-        <p class="deg">B.S. Computer Science, Minor in General Business · July 2026</p>
-      </div>
-      <div>
-        <div class="k">Coursework</div>
-        <p class="courses">Artificial Intelligence, Compilers, Programming Languages, Computer Systems, Computer Architecture, Cryptography, Discrete Structures, Object-Oriented Programming, Information Systems, Financial Management</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section class="contact" id="contact">
   <div class="wrap reveal">
-    <div class="kicker">06 · Contact</div>
+    <div class="kicker">05 · Contact</div>
     <h2>Let's <em>talk</em></h2>
     <p>I'm open to new-grad software, AI engineering and technical rotational roles. The fastest way to reach me is email.</p>
     <div class="cta">
@@ -997,6 +989,15 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
     if (d > 6) { spawn(e.clientX, e.clientY, Math.min(4, 1 + (d / 22) | 0)); lx = e.clientX; ly = e.clientY; }
   }, { passive: true });
   window.addEventListener('pointerdown', function (e) { if (e.pointerType === 'mouse') spawn(e.clientX, e.clientY, 12); }, { passive: true });
+})();
+
+/* ---------- phone menu ---------- */
+(function () {
+  var btn = document.getElementById('menuBtn'), links = document.getElementById('navLinks');
+  function set(open) { links.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); btn.textContent = open ? 'close' : 'menu'; }
+  btn.addEventListener('click', function () { set(!links.classList.contains('open')); });
+  links.addEventListener('click', function (e) { if (e.target.tagName === 'A') set(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
 })();
 
 /* ---------- nav background once scrolled ---------- */
