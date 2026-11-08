@@ -43,6 +43,9 @@ body {
 }
 #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
 .webgl-sky .portrait::before { opacity: .35; }
+html.star-cursor, html.star-cursor * { cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2732%27%20height%3D%2732%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cdefs%3E%3CradialGradient%20id%3D%27g%27%20cx%3D%27.42%27%20cy%3D%27.38%27%20r%3D%27.7%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%23ffffff%27/%3E%3Cstop%20offset%3D%27.35%27%20stop-color%3D%27%23a9d6ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%232f8fff%27/%3E%3C/radialGradient%3E%3Cfilter%20id%3D%27f%27%20x%3D%27-50%25%27%20y%3D%27-50%25%27%20width%3D%27200%25%27%20height%3D%27200%25%27%3E%3CfeGaussianBlur%20stdDeviation%3D%271.6%27/%3E%3C/filter%3E%3C/defs%3E%3Cpolygon%20points%3D%2716.0%2C6.0%2018.5%2C12.6%2025.5%2C12.9%2020.0%2C17.3%2021.9%2C24.1%2016.0%2C20.2%2010.1%2C24.1%2012.0%2C17.3%206.5%2C12.9%2013.5%2C12.6%27%20fill%3D%27%232f8fff%27%20filter%3D%27url%28%23f%29%27%20opacity%3D%27.85%27/%3E%3Cpolygon%20points%3D%2716.0%2C6.0%2018.5%2C12.6%2025.5%2C12.9%2020.0%2C17.3%2021.9%2C24.1%2016.0%2C20.2%2010.1%2C24.1%2012.0%2C17.3%206.5%2C12.9%2013.5%2C12.6%27%20fill%3D%27url%28%23g%29%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%27.8%27%20stroke-linejoin%3D%27round%27/%3E%3C/svg%3E") 16 16, auto; }
+html.star-cursor a, html.star-cursor button, html.star-cursor a *, html.star-cursor button * { cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2732%27%20height%3D%2732%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cdefs%3E%3CradialGradient%20id%3D%27g%27%20cx%3D%27.42%27%20cy%3D%27.38%27%20r%3D%27.7%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%23ffffff%27/%3E%3Cstop%20offset%3D%27.35%27%20stop-color%3D%27%23a9d6ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%231f7fff%27/%3E%3C/radialGradient%3E%3Cfilter%20id%3D%27f%27%20x%3D%27-50%25%27%20y%3D%27-50%25%27%20width%3D%27200%25%27%20height%3D%27200%25%27%3E%3CfeGaussianBlur%20stdDeviation%3D%272.4%27/%3E%3C/filter%3E%3C/defs%3E%3Cpolygon%20points%3D%2716.0%2C3.0%2019.2%2C11.6%2028.4%2C12.0%2021.1%2C17.7%2023.6%2C26.5%2016.0%2C21.4%208.4%2C26.5%2010.9%2C17.7%203.6%2C12.0%2012.8%2C11.6%27%20fill%3D%27%231f7fff%27%20filter%3D%27url%28%23f%29%27%20opacity%3D%27.85%27/%3E%3Cpolygon%20points%3D%2716.0%2C3.0%2019.2%2C11.6%2028.4%2C12.0%2021.1%2C17.7%2023.6%2C26.5%2016.0%2C21.4%208.4%2C26.5%2010.9%2C17.7%203.6%2C12.0%2012.8%2C11.6%27%20fill%3D%27url%28%23g%29%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%27.8%27%20stroke-linejoin%3D%27round%27/%3E%3C/svg%3E") 16 16, pointer; }
+#sparkles { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; }
 #launch { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; }
 .vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(10, 6, 20, .5) 100%); }
 /* film grain */
@@ -163,6 +166,8 @@ h2 em { font-style: italic; color: var(--peach); }
 .skillbox { padding: 34px; }
 .orbit-stage { position: relative; width: 100%; height: 600px; margin: 0 auto; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
 .orbit-stage.dragging { cursor: grabbing; }
+html.star-cursor .orbit-stage, html.star-cursor .orbit-stage * { cursor: grab; }
+html.star-cursor .orbit-stage.dragging, html.star-cursor .orbit-stage.dragging * { cursor: grabbing; }
 .moonglow { position: absolute; left: 50%; top: 50%; width: 520px; height: 520px; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; z-index: 1;
   background: radial-gradient(circle, rgba(255, 214, 228, .38) 0%, rgba(247, 168, 196, .18) 32%, rgba(200, 160, 255, .06) 55%, transparent 70%); animation: breathe 8s ease-in-out infinite; }
 #moon { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 100; pointer-events: none; border-radius: 50%; box-shadow: 0 0 60px 6px rgba(255, 205, 222, .35), 0 0 140px 30px rgba(240, 150, 190, .14); }
@@ -921,6 +926,70 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
     else c.remove();
   }
   setTimeout(function () { requestAnimationFrame(frame); }, 350);
+})();
+
+/* ---------- cursor: a bright blue star with a twinkling sparkle trail ---------- */
+(function () {
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;     // mouse/trackpad only
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.documentElement.classList.add('star-cursor');
+  var c = document.createElement('canvas');
+  c.id = 'sparkles'; c.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(c);
+  var ctx = c.getContext('2d'), W, H, DPR, parts = [], running = false, lx = null, ly = null;
+  var colors = ['#3d9bff', '#5fb0ff', '#8ccaff', '#bfe2ff', '#ffffff', '#3d9bff'];
+  function size() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2); W = window.innerWidth; H = window.innerHeight;
+    c.width = W * DPR; c.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  size(); window.addEventListener('resize', size);
+
+  function star(x, y, r, rot) {          // four-point twinkle with curved sides
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.beginPath();
+    for (var i = 0; i < 4; i++) {
+      var a = i * Math.PI / 2;
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.quadraticCurveTo(Math.cos(a + Math.PI / 4) * r * 0.18, Math.sin(a + Math.PI / 4) * r * 0.18,
+                           Math.cos(a + Math.PI / 2) * r, Math.sin(a + Math.PI / 2) * r);
+    }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  function spawn(x, y, n) {
+    for (var i = 0; i < n; i++) {
+      parts.push({
+        x: x + (Math.random() - 0.5) * 8, y: y + (Math.random() - 0.5) * 8,
+        vx: (Math.random() - 0.5) * 1.6, vy: (Math.random() - 0.5) * 1.6 + 0.35,
+        r: 4.5 + Math.random() * 8, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.12,
+        life: 1, decay: 0.012 + Math.random() * 0.016, col: colors[(Math.random() * colors.length) | 0],
+        tw: Math.random() * 6
+      });
+    }
+    if (parts.length > 220) parts.splice(0, parts.length - 220);
+    if (!running) { running = true; requestAnimationFrame(tick); }
+  }
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = parts.length - 1; i >= 0; i--) {
+      var p = parts[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.025; p.vx *= 0.98; p.rot += p.vr; p.life -= p.decay; p.tw += 0.35;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      var s = p.r * (0.4 + 0.6 * p.life) * (0.75 + 0.25 * Math.sin(p.tw));
+      ctx.globalAlpha = p.life;
+      ctx.shadowColor = '#3d9bff'; ctx.shadowBlur = 16;
+      ctx.fillStyle = p.col; star(p.x, p.y, s, p.rot);
+      ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; star(p.x, p.y, s * 0.35, p.rot);
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    if (parts.length) requestAnimationFrame(tick); else { running = false; ctx.clearRect(0, 0, W, H); }
+  }
+  window.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    if (lx === null) { lx = e.clientX; ly = e.clientY; }
+    var d = Math.hypot(e.clientX - lx, e.clientY - ly);
+    if (d > 6) { spawn(e.clientX, e.clientY, Math.min(4, 1 + (d / 22) | 0)); lx = e.clientX; ly = e.clientY; }
+  }, { passive: true });
+  window.addEventListener('pointerdown', function (e) { if (e.pointerType === 'mouse') spawn(e.clientX, e.clientY, 12); }, { passive: true });
 })();
 
 /* ---------- nav background once scrolled ---------- */
