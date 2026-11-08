@@ -42,6 +42,8 @@ body {
   overflow-x: hidden;
 }
 #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.webgl-sky .portrait::before { opacity: .35; }
+.vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(10, 6, 20, .5) 100%); }
 /* film grain */
 body::after {
   content: ""; position: fixed; inset: -50%; z-index: 1; pointer-events: none; opacity: .07;
@@ -64,7 +66,7 @@ nav .wrap { display: flex; align-items: center; justify-content: space-between; 
 .links a:hover { color: var(--peach); }
 
 /* hero */
-.hero { min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding: 96px 0 72px; }
+.hero { position: relative; min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding: 96px 0 72px; }
 .hero .wrap { display: grid; grid-template-columns: 1.25fr .9fr; gap: 48px; align-items: center; }
 .kicker { font: 400 12.5px/1.6 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--peach); }
 h1 { font: 400 clamp(64px, 10.5vw, 132px)/.92 var(--serif); margin: 18px 0 26px; letter-spacing: -.015em; }
@@ -202,6 +204,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 @media (max-width: 640px) {
   .wrap { padding: 0 20px; }
   .links a.opt { display: none; }
+  .scroll-cue { display: none; }
   .links { gap: 18px; }
   section.block { padding: 80px 0; }
   .about .glass, .edu, .skillbox, .proj { padding: 26px 22px; }
@@ -220,6 +223,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 <body>
 <a class="skip" href="#about">Skip to content</a>
 <canvas id="sky" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
 
 <nav id="nav">
   <div class="wrap">
@@ -510,95 +514,284 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 <footer><div class="wrap"><span>© 2026 Sandra Sumesh</span><span>Updated November 2026</span></div></footer>
 
 <script>
-/* ---------- sky: 3D drifting light motes + a sun that rises as you scroll ---------- */
+/* ---------- sky: a soft-pink night you fly through, with a moon that rises ----------
+   Plain WebGL, no libraries. Layers, back to front:
+   1. sky shader: dusk-rose gradient + drifting pink/lavender nebula clouds
+   2. starfield: ~5,000 points in 3D; scrolling flies the camera forward
+   3. the moon: a lit, cratered sphere drawn in a shader, with a pink glow
+   4. close dust and the odd shooting star
+   Falls back to the CSS gradient on the page if WebGL isn't available. */
 (function () {
-  var canvas = document.getElementById('sky'), ctx = canvas.getContext('2d');
+  var canvas = document.getElementById('sky');
+  var gl = canvas.getContext('webgl', { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' }) ||
+           canvas.getContext('experimental-webgl');
+  if (!gl) return;
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var W, H, DPR, motes = [], sprite, mx = 0, my = 0, tx = 0, ty = 0, prog = 0, tprog = 0, last = 0;
-  var palette = [[255, 214, 170], [255, 170, 140], [246, 140, 166], [190, 205, 255], [255, 236, 210]];
+  var mobile = window.innerWidth < 760;
 
-  function makeSprite() {
-    sprite = document.createElement('canvas'); sprite.width = sprite.height = 64;
-    var s = sprite.getContext('2d'), g = s.createRadialGradient(32, 32, 0, 32, 32, 32);
-    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.55)');
-    g.addColorStop(.6, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-    s.fillStyle = g; s.fillRect(0, 0, 64, 64);
+  function shader(type, src) {
+    var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { throw new Error(gl.getShaderInfoLog(s)); }
+    return s;
   }
-  function tinted(c) {
-    var t = document.createElement('canvas'); t.width = t.height = 64;
-    var x = t.getContext('2d'); x.drawImage(sprite, 0, 0);
-    x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(' + c.join(',') + ')'; x.fillRect(0, 0, 64, 64);
-    return t;
+  function program(vs, fs) {
+    var p = gl.createProgram();
+    gl.attachShader(p, shader(gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { throw new Error(gl.getProgramInfoLog(p)); }
+    var u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (var i = 0; i < n; i++) { var nm = gl.getActiveUniform(p, i).name; u[nm] = gl.getUniformLocation(p, nm); }
+    return { p: p, u: u };
   }
-  var sprites;
-  function spawn(m, fresh) {
-    m.x = (Math.random() * 2 - 1) * 1.6;
-    m.y = (Math.random() * 2 - 1) * 1.1;
-    m.z = fresh ? Math.random() * 0.95 + 0.05 : 1;
-    m.s = Math.random() * 1.6 + 0.5;
-    m.c = Math.floor(Math.random() * palette.length);
-    m.v = Math.random() * 0.5 + 0.6;
-    m.tw = Math.random() * Math.PI * 2;
-    return m;
-  }
-  function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    var n = W < 700 ? 110 : 240;
-    motes = []; for (var i = 0; i < n; i++) motes.push(spawn({}, true));
-  }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function mix(c1, c2, t) { return 'rgb(' + Math.round(lerp(c1[0], c2[0], t)) + ',' + Math.round(lerp(c1[1], c2[1], t)) + ',' + Math.round(lerp(c1[2], c2[2], t)) + ')'; }
 
-  function frame(now) {
-    var dt = Math.min((now - last) / 1000 || 0, 0.05); last = now;
-    tx = lerp(tx, mx, 0.04); ty = lerp(ty, my, 0.04); prog = lerp(prog, tprog, 0.06);
+  var NOISE = [
+    'float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }',
+    'float noise(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);',
+    '  return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),',
+    '             mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); }',
+    'float fbm(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }'
+  ].join('\n');
 
-    // sky: deepens to dusk at the top, warms toward dawn as you scroll
-    var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, mix([14, 12, 30], [30, 22, 56], prog));
-    g.addColorStop(0.55, mix([27, 20, 50], [74, 38, 78], prog));
-    g.addColorStop(1, mix([58, 30, 62], [168, 82, 98], prog));
-    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  var QUAD_VS = 'attribute vec2 aPos; void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }';
 
-    // the sun, rising with scroll
-    var sx = W * 0.5 + tx * 30, sy = H * lerp(1.18, 0.78, prog) + ty * 20, R = Math.max(W, H) * lerp(0.55, 0.75, prog);
-    var sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
-    sg.addColorStop(0, 'rgba(255,226,186,' + lerp(0.55, 0.8, prog) + ')');
-    sg.addColorStop(0.18, 'rgba(255,170,136,' + lerp(0.35, 0.5, prog) + ')');
-    sg.addColorStop(0.45, 'rgba(240,120,150,' + lerp(0.12, 0.2, prog) + ')');
-    sg.addColorStop(1, 'rgba(240,120,150,0)');
-    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
+  /* 1. sky */
+  var sky;
+  try {
+    sky = program(QUAD_VS, [
+      'precision highp float;',
+      'uniform vec2 uRes; uniform float uTime; uniform float uP; uniform float uIntro;',
+      NOISE,
+      'void main(){',
+      '  vec2 uv = gl_FragCoord.xy / uRes; float asp = uRes.x / uRes.y;',
+      '  vec3 top = mix(vec3(0.075, 0.048, 0.125), vec3(0.045, 0.032, 0.095), uP);',
+      '  vec3 bot = mix(vec3(0.34, 0.16, 0.29), vec3(0.15, 0.075, 0.19), smoothstep(0.0, 0.6, uP));',
+      '  vec3 col = mix(bot, top, pow(uv.y, 0.7));',
+      // rosy glow low on the horizon, strongest at the top of the page
+      '  float hz = distance(uv * vec2(asp, 1.0), vec2(0.5 * asp, -0.15));',
+      '  col += vec3(1.0, 0.56, 0.70) * 0.26 * smoothstep(1.0, 0.0, hz) * (1.0 - 0.75 * uP) * uIntro;',
+      // nebula: two layers of soft noise, slide upward as you scroll
+      '  vec3 q = vec3(uv.x * asp * 1.5, uv.y * 1.5 + uP * 2.4, uTime * 0.012);',
+      '  float n1 = fbm(q), n2 = fbm(q * 1.8 + vec3(5.2, 1.3, 2.7));',
+      '  float neb = smoothstep(0.42, 0.86, n1) * (0.55 + 0.45 * n2);',
+      '  vec3 tint = mix(vec3(1.0, 0.56, 0.74), vec3(0.72, 0.58, 1.0), smoothstep(0.35, 0.7, n2));',
+      '  col += tint * neb * (0.13 + 0.13 * smoothstep(0.1, 0.55, uP)) * uIntro;',
+      '  col += (hash(vec3(gl_FragCoord.xy, uTime)) - 0.5) / 180.0;',
+      '  gl_FragColor = vec4(col, 1.0);',
+      '}'
+    ].join('\n'));
+  } catch (e) { console.warn(e); return; }
 
-    // motes in perspective
-    var f = Math.min(W, H) * 0.55, cx = W / 2, cy = H / 2;
-    for (var i = 0; i < motes.length; i++) {
-      var m = motes[i];
-      if (!reduce) { m.z -= dt * 0.045 * m.v; m.tw += dt * 1.2; }
-      if (m.z < 0.04) { spawn(m, false); continue; }
-      var px = cx + ((m.x - tx * 0.25 * (1 - m.z)) / m.z) * f;
-      var py = cy + ((m.y - ty * 0.18 * (1 - m.z)) / m.z) * f;
-      if (px < -60 || px > W + 60 || py < -60 || py > H + 60) { if (m.z < 0.6) spawn(m, false); continue; }
-      var r = (m.s / m.z) * 2.2;
-      var a = Math.min(1, (1 - m.z) * 1.6) * Math.min(1, m.z * 6) * (0.65 + 0.35 * Math.sin(m.tw));
-      ctx.globalAlpha = a * 0.85;
-      ctx.drawImage(sprites[m.c], px - r * 2, py - r * 2, r * 4, r * 4);
+  /* 2 + 4. points: stars and dust share one shader */
+  var pts = program([
+    'attribute vec3 aPos; attribute vec4 aCol;',
+    'uniform float uCamZ; uniform float uDepth; uniform vec2 uCam; uniform float uAsp; uniform float uScale; uniform float uTime; uniform float uAlpha; uniform float uDpr;',
+    'varying vec4 vCol;',
+    'void main(){',
+    '  float z = mod(aPos.z - uCamZ, uDepth) + 12.0;',
+    '  vec2 p = (aPos.xy - uCam) * 1.25 / z;',
+    '  gl_Position = vec4(p.x / uAsp, p.y, 0.0, 1.0);',
+    '  float size = aCol.a * uScale / z;',
+    '  gl_PointSize = clamp(size, 1.4, 18.0) * uDpr;',
+    '  float tw = 0.72 + 0.28 * sin(uTime * (1.2 + fract(aPos.x * 0.37) * 2.5) + aPos.y);',
+    '  float fade = smoothstep(uDepth, uDepth * 0.72, z) * smoothstep(12.0, uDepth * 0.04, z);',
+    '  vCol = vec4(aCol.rgb, fade * tw * uAlpha * clamp(size / 1.4, 0.35, 1.0));',
+    '}'
+  ].join('\n'), [
+    'precision mediump float; varying vec4 vCol;',
+    'void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = pow(max(0.0, 1.0 - d), 2.2) + 0.6 * smoothstep(0.35, 0.0, d);',
+    '  gl_FragColor = vec4(vCol.rgb * a * vCol.a, 1.0); }'
+  ].join('\n'));
+
+  /* 3. the moon */
+  var moonP = program([
+    'attribute vec2 aPos; uniform vec2 uC; uniform float uR; uniform vec2 uRes; varying vec2 vL;',
+    'void main(){ vL = aPos * 2.8; vec2 px = uC + vL * uR; gl_Position = vec4(px / uRes * 2.0 - 1.0, 0.0, 1.0); }'
+  ].join('\n'), [
+    'precision highp float;',
+    'uniform float uR; uniform float uSpin; uniform float uA; varying vec2 vL;',
+    NOISE,
+    'float craters(vec3 p){',
+    '  vec3 i = floor(p), f = fract(p); float h = 0.0;',
+    '  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {',
+    '    vec3 g = vec3(float(x), float(y), float(z));',
+    '    vec3 o = vec3(hash(i + g), hash(i + g + 11.3), hash(i + g + 27.1));',
+    '    float r = 0.18 + 0.22 * hash(i + g + 5.7);',
+    '    float d = length(g + o - f) / r;',
+    '    h += (d < 1.0 ? -(1.0 - d * d) * 0.55 : 0.0) + 0.4 * exp(-pow((d - 1.0) / 0.16, 2.0));',
+    '  }',
+    '  return h;',
+    '}',
+    'void main(){',
+    '  float d = length(vL); float aa = 1.6 / uR;',
+    '  float body = smoothstep(1.0 + aa, 1.0 - aa, d);',
+    '  vec3 col = vec3(0.0);',
+    '  if (d < 1.0 + aa) {',
+    '    vec3 n = vec3(vL, sqrt(max(0.0, 1.0 - d * d)));',
+    '    float c = cos(uSpin), s = sin(uSpin);',
+    '    vec3 m = vec3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c);',
+    '    float alb = 0.9 - smoothstep(0.42, 0.68, fbm(m * 2.1 + 3.0)) * 0.3',
+    '              + craters(m * 3.6) * 0.07 + craters(m * 8.0 + 4.0) * 0.045 + (noise(m * 30.0) - 0.5) * 0.06;',
+    '    vec3 L = normalize(vec3(0.6, 0.38, 0.7));',
+    '    float diff = max(dot(n, L), 0.0);',
+    '    col = alb * pow(diff, 0.75) * vec3(1.1, 0.88, 0.95)',
+    '        + alb * (1.0 - diff) * 0.2 * vec3(0.85, 0.45, 0.7)',
+    '        + pow(1.0 - n.z, 2.4) * 0.42 * vec3(1.0, 0.66, 0.82);',
+    '  }',
+    '  float o = max(d - 1.0, 0.0);',
+    '  float glow = (exp(-o * 4.5) * 0.55 + exp(-o * 1.25) * 0.2) * smoothstep(2.8, 2.0, d) * (1.0 - body);',
+    '  vec3 g = vec3(1.0, 0.7, 0.84) * glow;',
+    '  gl_FragColor = vec4((col * body + g) * uA, body * uA);',
+    '}'
+  ].join('\n'));
+
+  /* shooting stars */
+  var lineP = program([
+    'attribute vec2 aPos; attribute float aA; varying float vA;',
+    'void main(){ vA = aA; gl_Position = vec4(aPos, 0.0, 1.0); }'
+  ].join('\n'), 'precision mediump float; varying float vA; void main(){ gl_FragColor = vec4(vec3(1.0, 0.86, 0.92) * vA, 1.0); }');
+
+  /* --- geometry --- */
+  var quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+  function pointCloud(n, sx, sy, depth, sizeLo, sizeHi, palette) {
+    var a = new Float32Array(n * 7);
+    for (var i = 0; i < n; i++) {
+      var o = i * 7, c = palette[Math.random() < 0.72 ? 0 : (Math.random() < 0.5 ? 1 : 2)];
+      a[o] = (Math.random() * 2 - 1) * sx; a[o + 1] = (Math.random() * 2 - 1) * sy; a[o + 2] = Math.random() * depth;
+      a[o + 3] = c[0]; a[o + 4] = c[1]; a[o + 5] = c[2];
+      a[o + 6] = sizeLo + Math.pow(Math.random(), 3) * (sizeHi - sizeLo);
     }
-    ctx.globalAlpha = 1;
+    var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW);
+    return { buf: b, n: n, depth: depth };
+  }
+  var STAR_DEPTH = 2400, DUST_DEPTH = 520;
+  var stars = pointCloud(mobile ? 2200 : 5200, 1500, 1000, STAR_DEPTH, 2.2, 7.5,
+    [[1.0, 0.94, 0.97], [1.0, 0.68, 0.82], [0.8, 0.76, 1.0]]);
+  var dust = pointCloud(mobile ? 160 : 380, 300, 210, DUST_DEPTH, 2.5, 5, [[1.0, 0.78, 0.88], [1.0, 0.85, 0.9], [0.9, 0.82, 1.0]]);
+
+  var meteors = [], lineBuf = gl.createBuffer(), lineData = new Float32Array(6 * 3);
+  for (var mi = 0; mi < 3; mi++) meteors.push({ life: 0, wait: 120 + Math.random() * 400 });
+
+  /* --- state --- */
+  var W, H, DPR, mx = 0, my = 0, cx = 0, cy = 0, prog = 0, tprog = 0, moonFade = 1, introStart = performance.now();
+  var skills = document.getElementById('skills'), contact = document.getElementById('contact'), portrait = document.querySelector('.portrait .frame');
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 1.75);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  function range(v, a, b) { return Math.min(1, Math.max(0, (v - a) / (b - a))); }
+  function onScroll() {
+    var y = window.scrollY, max = document.documentElement.scrollHeight - H;
+    tprog = max > 0 ? Math.min(1, y / max) : 0;
+    // clear the moon out of the way before Skills (it has its own), bring it back for Contact
+    var st = skills.offsetTop, ct = contact.offsetTop;
+    moonFade = (1 - range(y, st - H * 1.3, st - H * 0.4)) + range(y, ct - H * 0.9, ct - H * 0.2);
+  }
+
+  function attrib(prog, name, size, stride, offset) {
+    var loc = gl.getAttribLocation(prog.p, name);
+    if (loc < 0) return;
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset);
+  }
+  function drawPoints(cloud, camZ, scale, alpha) {
+    gl.useProgram(pts.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cloud.buf);
+    attrib(pts, 'aPos', 3, 28, 0); attrib(pts, 'aCol', 4, 28, 12);
+    gl.uniform1f(pts.u.uCamZ, camZ); gl.uniform1f(pts.u.uDepth, cloud.depth);
+    gl.uniform2f(pts.u.uCam, cx, cy); gl.uniform1f(pts.u.uAsp, W / H);
+    gl.uniform1f(pts.u.uScale, scale * Math.min(W, H) / 900); gl.uniform1f(pts.u.uTime, now / 1000);
+    gl.uniform1f(pts.u.uAlpha, alpha); gl.uniform1f(pts.u.uDpr, DPR);
+    gl.drawArrays(gl.POINTS, 0, cloud.n);
+  }
+  function ease(t) { return 1 - Math.pow(1 - t, 3); }
+
+  var now = 0;
+  function frame(t) {
+    now = t;
+    var intro = reduce ? 1 : ease(Math.min(1, (t - introStart) / 2600));
+    prog += (tprog - prog) * 0.07;
+    cx += (mx * 60 - cx) * 0.04; cy += (-my * 40 - cy) * 0.04;
+    var secs = t / 1000, camZ = reduce ? prog * 1500 : prog * 1500 + secs * 9;
+
+    gl.disable(gl.DEPTH_TEST);
+    // 1. sky
+    gl.disable(gl.BLEND);
+    gl.useProgram(sky.p);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad); attrib(sky, 'aPos', 2, 0, 0);
+    gl.uniform2f(sky.u.uRes, canvas.width, canvas.height); gl.uniform1f(sky.u.uTime, secs);
+    gl.uniform1f(sky.u.uP, prog); gl.uniform1f(sky.u.uIntro, 0.35 + 0.65 * intro);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // 2. stars (additive)
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+    drawPoints(stars, camZ, 900, intro);
+
+    // 3. moon: rises at load, then climbs and recedes as you scroll
+    var mf = Math.min(1, moonFade);
+    if (mf > 0.01) {
+      // in the hero it sits just behind the photo like a halo; as you scroll it
+      // drifts up to the top corner and recedes into the distance
+      var base = Math.min(W, H), climb = ease(range(prog, 0, 0.22));
+      var pr = portrait.getBoundingClientRect();
+      var ax = pr.left + pr.width * 0.62, ay = H - (pr.top + pr.height * 0.4), ar = pr.width * 0.5 * 1.28;
+      var bx = W * (mobile ? 0.8 : 0.84), by = H * (mobile ? 0.72 : 0.8), br = base * (mobile ? 0.13 : 0.11);
+      var mxp = ax + (bx - ax) * climb + cx * 0.3 * climb, myp = ay + (by - ay) * climb - cy * 0.2 * climb; // GL y is up
+      var r = ar + (br - ar) * climb;
+      myp -= (1 - intro) * H * 0.55;
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(moonP.p);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad); attrib(moonP, 'aPos', 2, 0, 0);
+      gl.uniform2f(moonP.u.uC, mxp * DPR, myp * DPR); gl.uniform1f(moonP.u.uR, r * DPR);
+      gl.uniform2f(moonP.u.uRes, canvas.width, canvas.height);
+      gl.uniform1f(moonP.u.uSpin, reduce ? 0.6 : 0.6 + secs * 0.02 + prog * 1.2);
+      gl.uniform1f(moonP.u.uA, mf * (0.25 + 0.75 * intro));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // 4. dust in front, and shooting stars
+    gl.blendFunc(gl.ONE, gl.ONE);
+    drawPoints(dust, prog * 900 + (reduce ? 0 : secs * 14), 700, 0.22 * range(prog, 0.04, 0.3));
+
+    if (!reduce && intro > 0.9) {
+      var nLines = 0;
+      for (var i = 0; i < meteors.length; i++) {
+        var m = meteors[i];
+        if (m.life <= 0) {
+          if (--m.wait <= 0) {
+            m.life = 1; m.wait = 260 + Math.random() * 700;
+            m.x = Math.random() * 1.6 - 0.4; m.y = 0.3 + Math.random() * 0.7;
+            m.vx = -(0.012 + Math.random() * 0.01); m.vy = -(0.006 + Math.random() * 0.006);
+          }
+          continue;
+        }
+        m.life -= 0.018; m.x += m.vx; m.y += m.vy;
+        var a = Math.sin(Math.max(0, m.life) * Math.PI) * 0.9, k = nLines * 6;
+        lineData[k] = m.x; lineData[k + 1] = m.y; lineData[k + 2] = a;
+        lineData[k + 3] = m.x - m.vx * 14; lineData[k + 4] = m.y - m.vy * 14; lineData[k + 5] = 0;
+        nLines++;
+      }
+      if (nLines) {
+        gl.useProgram(lineP.p);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferData(gl.ARRAY_BUFFER, lineData, gl.DYNAMIC_DRAW);
+        attrib(lineP, 'aPos', 2, 12, 0); attrib(lineP, 'aA', 1, 12, 8);
+        gl.drawArrays(gl.LINES, 0, nLines * 2);
+      }
+    }
+
     if (!reduce) requestAnimationFrame(frame);
   }
 
   window.addEventListener('pointermove', function (e) { mx = e.clientX / W * 2 - 1; my = e.clientY / H * 2 - 1; }, { passive: true });
-  function onScroll() {
-    var max = document.documentElement.scrollHeight - H;
-    tprog = max > 0 ? Math.min(1, window.scrollY / max) : 0;
-    if (reduce) requestAnimationFrame(frame);
-  }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', function () { resize(); if (reduce) requestAnimationFrame(frame); });
-  makeSprite(); sprites = palette.map(tinted); resize(); onScroll(); requestAnimationFrame(frame);
+  window.addEventListener('scroll', function () { onScroll(); if (reduce) requestAnimationFrame(frame); }, { passive: true });
+  window.addEventListener('resize', function () { resize(); onScroll(); if (reduce) requestAnimationFrame(frame); });
+  resize(); onScroll(); prog = tprog;
+  document.documentElement.classList.add('webgl-sky');
+  requestAnimationFrame(frame);
 })();
 
 /* ---------- nav background once scrolled ---------- */
