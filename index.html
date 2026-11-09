@@ -134,6 +134,9 @@ h2 em { font-style: italic; color: var(--peach); }
 .projects { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; }
 .proj { grid-column: span 2; padding: 30px; display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden; transition: transform .45s cubic-bezier(.2,.7,.2,1), border-color .35s, background .35s; }
 .proj.feature { grid-column: span 3; }
+.proj.wide { grid-column: span 6; }
+.proj.wide h3 { font-size: 44px; }
+.proj.wide .cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 28px; align-items: start; }
 .proj::before { content: ""; position: absolute; width: 320px; height: 320px; border-radius: 50%; right: -140px; top: -160px; background: radial-gradient(circle, rgba(255, 180, 140, .22), transparent 65%); transition: transform .6s, opacity .6s; opacity: .55; pointer-events: none; }
 .proj:hover { transform: translateY(-4px); border-color: rgba(255, 190, 160, .35); background: var(--glass-hi); }
 .proj:hover::before { transform: scale(1.25); opacity: 1; }
@@ -216,7 +219,8 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
   .about, .edu { grid-template-columns: 1fr; }
   .about-side { order: -1; }
   .projects { grid-template-columns: 1fr; }
-  .proj, .proj.feature { grid-column: auto; }
+  .proj, .proj.feature, .proj.wide { grid-column: auto; }
+  .proj.wide .cols { grid-template-columns: 1fr; }
   .slide .glass { grid-template-columns: 1fr; gap: 14px; padding: 30px 26px; }
 }
 @media (max-width: 640px) {
@@ -307,6 +311,20 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
     <div class="head reveal"><span class="num">02</span><h2>Recent <em>projects</em></h2></div>
     <p class="sub reveal">Each repo has a README covering the design decisions, plus tests and sample data you can run yourself.</p>
     <div class="projects">
+      <article class="glass proj wide reveal">
+        <div class="what">AI agent · full-stack · browser extension</div>
+        <h3>Rabbit Hole Visualizer</h3>
+        <div class="cols">
+          <p>Maps a research session into an interactive graph of every page you visited and how you clicked from one to the next. A Chrome extension records pages only while you choose to record, a Node.js API builds the graph, and a Claude agent uses tools to inspect the path, fetch pages it needs, group them into topics, recap the journey and suggest what to explore next.</p>
+          <ul>
+            <li>The graph is built by code, and the agent's output is validated before it's saved, so every page lands in exactly one topic</li>
+            <li>Privacy by design: opt-in recording, excluded sites, and no full page content stored</li>
+            <li>Works offline without an API key; basic SSRF guard on page fetching</li>
+          </ul>
+        </div>
+        <div class="tags"><span class="tag">React</span><span class="tag">Node.js</span><span class="tag">Express</span><span class="tag">Claude tool use</span><span class="tag">Cytoscape.js</span><span class="tag">Chrome extension</span></div>
+        <a class="go" href="https://github.com/sandrasumesh/rabbithole">View on GitHub <span>→</span></a>
+      </article>
       <article class="glass proj feature reveal">
         <div class="what">AI analyst for payment reconciliation</div>
         <h3>LedgerLens</h3>
